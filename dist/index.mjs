@@ -32358,7 +32358,7 @@ app.use(import_express4.default.urlencoded({ extended: true }));
 app.use("/api", routes_default);
 var publicDir = path.join(__dirname2, "public");
 app.use(import_express4.default.static(publicDir));
-app.get("*", (_req, res) => {
+app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.join(publicDir, "index.html"));
 });
 var app_default = app;
