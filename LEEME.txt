@@ -1,0 +1,14 @@
+═══════════════════════════════════════════════════
+  DYAMOND GEOS Wind Dashboard
+═══════════════════════════════════════════════════
+
+REQUISITO: Node.js 20 o superior
+  Descarga en: https://nodejs.org
+
+PASOS:
+  1. Abrir terminal en esta carpeta
+  2. npm install
+  3. npm start
+  4. Abrir navegador en: http://localhost:3000
+
+═══════════════════════════════════════════════════
