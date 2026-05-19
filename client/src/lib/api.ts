@@ -1,11 +1,12 @@
 import type {
   WindStats,
-  WindPoint,
+  WindVector,
+  HeatmapPoint,
+  ParticlePoint,
   LevelData,
   ProfilePoint,
   HistogramBin,
   BarEntry,
-  ParticleField,
 } from "../types/api";
 
 const BASE = "/api";
@@ -25,23 +26,23 @@ export const api = {
     get<WindStats>("/wind/stats", { face, level, year }),
 
   getVectors: (face: number, level: number, year: number) =>
-    get<WindPoint[]>("/wind/vectors", { face, level, year }),
+    get<WindVector[]>("/wind/vectors", { face, level, year }),
 
   getHeatmap: (face: number, level: number, year: number) =>
-    get<WindPoint[]>("/wind/heatmap", { face, level, year }),
+    get<HeatmapPoint[]>("/wind/heatmap", { face, level, year }),
+
+  getParticles: (face: number, level: number, year: number) =>
+    get<ParticlePoint[]>("/wind/particles", { face, level, year }),
 
   getLevels: (face: number, year: number) =>
     get<LevelData[]>("/wind/levels", { face, year }),
 
-  getProfile: (face: number, lat: number, year: number) =>
-    get<ProfilePoint[]>("/wind/profile", { face, lat, year }),
+  getProfile: (face: number, level: number, year: number) =>
+    get<ProfilePoint[]>("/wind/profile", { face, level, year }),
 
-  getHistogram: (face: number, level: number, variable: string) =>
-    get<HistogramBin[]>("/wind/histogram", { face, level, variable }),
+  getHistogram: (face: number, level: number, year: number) =>
+    get<HistogramBin[]>("/wind/histogram", { face, level, year }),
 
-  getBar: (face: number) =>
-    get<BarEntry[]>("/wind/bar", { face }),
-
-  getParticles: (face: number, level: number) =>
-    get<ParticleField>("/wind/particles", { face, level }),
+  getBar: (face: number, year: number) =>
+    get<BarEntry[]>("/wind/bar", { face, year }),
 };

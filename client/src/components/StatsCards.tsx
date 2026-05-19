@@ -5,40 +5,48 @@ interface Props {
   loading: boolean;
 }
 
+function fmt(v: number | undefined, dec = 1) {
+  if (v == null) return "—";
+  return v.toFixed(dec);
+}
+
 function Card({
-  label,
+  title,
   value,
   unit,
+  sub,
   color,
 }: {
-  label: string;
+  title: string;
   value: string;
-  unit?: string;
-  color?: string;
+  unit: string;
+  sub: string;
+  color: string;
 }) {
   return (
-    <div className="bg-surface rounded-xl border border-border p-4 flex flex-col gap-1">
-      <span className="text-xs text-muted uppercase tracking-wider font-medium">
-        {label}
-      </span>
-      <div className="flex items-baseline gap-1.5">
-        <span className={`text-2xl font-bold ${color ?? "text-white"}`}>
-          {value}
-        </span>
-        {unit && <span className="text-xs text-muted">{unit}</span>}
+    <div
+      className="rounded-xl p-4 flex flex-col gap-1"
+      style={{ background: "#080f1e", border: "1px solid #1e3a5f" }}
+    >
+      <span className="text-xs" style={{ color: "#8ba3c4" }}>{title}</span>
+      <div className="flex items-end gap-1.5 mt-1">
+        <span className={`text-3xl font-bold leading-none ${color}`}>{value}</span>
+        <span className="text-sm pb-0.5" style={{ color: "#8ba3c4" }}>{unit}</span>
       </div>
+      <span className="text-xs mt-1" style={{ color: "#4a6380" }}>{sub}</span>
     </div>
   );
 }
 
 export function StatsCards({ stats, loading }: Props) {
-  if (loading || !stats) {
+  if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="bg-surface rounded-xl border border-border p-4 h-20 animate-pulse"
+            className="rounded-xl p-4 animate-pulse"
+            style={{ background: "#080f1e", border: "1px solid #1e3a5f", height: 100 }}
           />
         ))}
       </div>
@@ -46,48 +54,34 @@ export function StatsCards({ stats, loading }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <Card
-        label="Max Wind Speed"
-        value={stats.maxSpeed.toFixed(1)}
+        title="Vel. Máx. del Viento"
+        value={fmt(stats?.maxSpeed)}
         unit="m/s"
-        color="text-accent"
+        sub={`Prom: ${fmt(stats?.avgSpeed)} m/s`}
+        color="text-cyan-300"
       />
       <Card
-        label="Avg Wind Speed"
-        value={stats.avgSpeed.toFixed(1)}
-        unit="m/s"
-        color="text-accent-2"
-      />
-      <Card
-        label="Avg Temperature"
-        value={stats.avgTemp.toFixed(1)}
-        unit="K"
-      />
-      <Card
-        label="Jet Stream Alt"
-        value={stats.jetStreamAlt.toFixed(1)}
+        title="Altitud de la Corriente en Chorro"
+        value={fmt(stats?.jetAltitude)}
         unit="km"
-        color="text-yellow-400"
+        sub={`Dirección: ${stats?.jetDirection ?? "—"}`}
+        color="text-yellow-300"
       />
       <Card
-        label="Max Vert. Velocity"
-        value={stats.maxW.toFixed(1)}
+        title="Rango de Temperatura"
+        value={fmt(stats?.tempRange)}
+        unit="K"
+        sub={`Máx: ${fmt(stats?.maxTemp)} K · Prom: ${fmt(stats?.avgTemp)} K`}
+        color="text-purple-300"
+      />
+      <Card
+        title="Velocidad Vertical (ω)"
+        value={fmt(stats?.maxOmega)}
         unit="m/s"
-      />
-      <Card
-        label="Dominant Direction"
-        value={stats.dominantDirection}
-        color="text-purple-400"
-      />
-      <Card
-        label="Total Grid Points"
-        value={stats.totalPoints.toLocaleString()}
-      />
-      <Card
-        label="Data Source"
-        value={stats.dataSource}
-        color={stats.dataSource === "openvisus" ? "text-accent-2" : "text-muted"}
+        sub={`Min: ${fmt(stats?.minOmega)} · Puntos: ${stats?.omegaCount ?? "—"}`}
+        color="text-green-300"
       />
     </div>
   );

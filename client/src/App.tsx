@@ -1,219 +1,189 @@
 import { useState, useEffect, useCallback } from "react";
-import { Controls } from "./components/Controls";
 import { StatsCards } from "./components/StatsCards";
-import { WindMap } from "./components/WindMap";
-import { LevelsChart } from "./components/LevelsChart";
-import { ProfileChart } from "./components/ProfileChart";
-import { HistogramChart } from "./components/HistogramChart";
-import { BarChartViz } from "./components/BarChartViz";
-import { ParticleField } from "./components/ParticleField";
+import { YearSelector } from "./components/YearSelector";
+import { ParticleGlobe } from "./components/ParticleGlobe";
+import { WindVectorField } from "./components/WindVectorField";
+import { SpeedHeatmap } from "./components/SpeedHeatmap";
+import { VerticalSection } from "./components/VerticalSection";
+import { AtmProfile } from "./components/AtmProfile";
+import { VorticityViz } from "./components/VorticityViz";
 import { api } from "./lib/api";
 import type {
-  DashboardControls,
   WindStats,
-  WindPoint,
+  WindVector,
+  HeatmapPoint,
   LevelData,
   ProfilePoint,
   HistogramBin,
   BarEntry,
-  ParticleField as ParticleFieldData,
+  ParticlePoint,
 } from "./types/api";
 
 type Tab = "horizontal" | "vertical" | "relations";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "horizontal", label: "Horizontal Wind (U/V)" },
-  { id: "vertical", label: "Vertical Dynamics (ω)" },
-  { id: "relations", label: "Atmospheric Relations" },
-];
+const YEARS = [2016, 2017, 2018, 2019, 2020];
+const FACES = [0, 1, 2, 3, 4, 5];
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("horizontal");
-  const [controls, setControls] = useState<DashboardControls>({
-    face: 0,
-    level: 30,
-    year: 2016,
-  });
-  const [profileLat, setProfileLat] = useState(40);
-  const [histVariable, setHistVariable] = useState("speed");
+  const [face, setFace] = useState(0);
+  const [level, setLevel] = useState(30);
+  const [year, setYear] = useState(2016);
+  const [isSynthetic, setIsSynthetic] = useState(false);
 
   const [stats, setStats] = useState<WindStats | null>(null);
-  const [heatmap, setHeatmap] = useState<WindPoint[]>([]);
-  const [vectors, setVectors] = useState<WindPoint[]>([]);
+  const [particles, setParticles] = useState<ParticlePoint[]>([]);
+  const [vectors, setVectors] = useState<WindVector[]>([]);
+  const [heatmap, setHeatmap] = useState<HeatmapPoint[]>([]);
   const [levels, setLevels] = useState<LevelData[]>([]);
   const [profile, setProfile] = useState<ProfilePoint[]>([]);
   const [histogram, setHistogram] = useState<HistogramBin[]>([]);
   const [bar, setBar] = useState<BarEntry[]>([]);
-  const [particles, setParticles] = useState<ParticleFieldData | null>(null);
 
   const [loadingStats, setLoadingStats] = useState(false);
-  const [loadingMap, setLoadingMap] = useState(false);
-  const [loadingLevels, setLoadingLevels] = useState(false);
-  const [loadingProfile, setLoadingProfile] = useState(false);
-  const [loadingHist, setLoadingHist] = useState(false);
-  const [loadingBar, setLoadingBar] = useState(false);
-  const [loadingParticles, setLoadingParticles] = useState(false);
 
-  const fetchStats = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     setLoadingStats(true);
     try {
-      setStats(await api.getStats(controls.face, controls.level, controls.year));
+      const s = await api.getStats(face, level, year);
+      setStats(s);
+      if ((s as any)._synthetic) setIsSynthetic(true);
+    } catch {
+      setIsSynthetic(true);
     } finally {
       setLoadingStats(false);
     }
-  }, [controls]);
 
-  const fetchMap = useCallback(async () => {
-    setLoadingMap(true);
-    try {
-      const [h, v] = await Promise.all([
-        api.getHeatmap(controls.face, controls.level, controls.year),
-        api.getVectors(controls.face, controls.level, controls.year),
-      ]);
-      setHeatmap(h);
-      setVectors(v);
-    } finally {
-      setLoadingMap(false);
-    }
-  }, [controls]);
-
-  const fetchLevels = useCallback(async () => {
-    setLoadingLevels(true);
-    try {
-      setLevels(await api.getLevels(controls.face, controls.year));
-    } finally {
-      setLoadingLevels(false);
-    }
-  }, [controls]);
-
-  const fetchProfile = useCallback(async () => {
-    setLoadingProfile(true);
-    try {
-      setProfile(
-        await api.getProfile(controls.face, profileLat, controls.year)
-      );
-    } finally {
-      setLoadingProfile(false);
-    }
-  }, [controls, profileLat]);
-
-  const fetchHistogram = useCallback(async () => {
-    setLoadingHist(true);
-    try {
-      setHistogram(
-        await api.getHistogram(controls.face, controls.level, histVariable)
-      );
-    } finally {
-      setLoadingHist(false);
-    }
-  }, [controls, histVariable]);
-
-  const fetchBar = useCallback(async () => {
-    setLoadingBar(true);
-    try {
-      setBar(await api.getBar(controls.face));
-    } finally {
-      setLoadingBar(false);
-    }
-  }, [controls]);
-
-  const fetchParticles = useCallback(async () => {
-    setLoadingParticles(true);
-    try {
-      setParticles(await api.getParticles(controls.face, controls.level));
-    } finally {
-      setLoadingParticles(false);
-    }
-  }, [controls]);
-
-  useEffect(() => {
-    fetchStats();
     if (tab === "horizontal") {
-      fetchMap();
-      fetchParticles();
+      const [p, v, h] = await Promise.all([
+        api.getParticles(face, level, year),
+        api.getVectors(face, level, year),
+        api.getHeatmap(face, level, year),
+      ]);
+      setParticles(p);
+      setVectors(v);
+      setHeatmap(h);
     } else if (tab === "vertical") {
-      fetchLevels();
-      fetchProfile();
+      const [lv, pr] = await Promise.all([
+        api.getLevels(face, year),
+        api.getProfile(face, level, year),
+      ]);
+      setLevels(lv);
+      setProfile(pr);
     } else {
-      fetchHistogram();
-      fetchBar();
+      const [hi, ba] = await Promise.all([
+        api.getHistogram(face, level, year),
+        api.getBar(face, year),
+      ]);
+      setHistogram(hi);
+      setBar(ba);
     }
-  }, [tab, controls]);
+  }, [face, level, year, tab]);
 
   useEffect(() => {
-    if (tab === "vertical") fetchProfile();
-  }, [profileLat]);
-
-  useEffect(() => {
-    if (tab === "relations") fetchHistogram();
-  }, [histVariable]);
+    fetchAll();
+  }, [face, level, year, tab]);
 
   return (
-    <div className="min-h-screen" style={{ background: "hsl(222,47%,7%)" }}>
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-5">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            DYAMOND GEOS Wind Dashboard
-          </h1>
-          <p className="text-sm text-muted mt-1">
-            Global atmospheric wind dynamics — NASA GEOS / DYAMOND simulation
-          </p>
+    <div className="min-h-screen text-white" style={{ background: "#030610" }}>
+      <div className="max-w-screen-xl mx-auto px-4 py-4 space-y-3">
+
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              DYAMOND GEOS Wind Dashboard
+            </h1>
+            <p className="text-xs mt-0.5" style={{ color: "#8ba3c4" }}>
+              Análisis Global de Vientos Atmosféricos · Cara {face} · Nivel {level} · {year}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4 flex-wrap">
+            {isSynthetic && (
+              <span className="flex items-center gap-1.5 text-xs" style={{ color: "#4ade80" }}>
+                <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+                Datos Sintéticos
+              </span>
+            )}
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs" style={{ color: "#8ba3c4" }}>Cara</span>
+              <select
+                value={face}
+                onChange={(e) => setFace(Number(e.target.value))}
+                className="text-xs rounded px-2 py-1 border"
+                style={{ background: "#0d1829", borderColor: "#1e3a5f", color: "#e2e8f0" }}
+              >
+                {FACES.map((f) => (
+                  <option key={f} value={f}>Cara {f}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs" style={{ color: "#8ba3c4" }}>Nivel</span>
+              <input
+                type="range"
+                min={1}
+                max={72}
+                value={level}
+                onChange={(e) => setLevel(Number(e.target.value))}
+                className="w-32 accent-cyan-400"
+              />
+              <span className="text-xs font-mono w-5 text-right text-white">{level}</span>
+            </div>
+          </div>
         </div>
 
-        <Controls controls={controls} onChange={setControls} />
+        <YearSelector years={YEARS} selected={year} onChange={setYear} />
 
         <StatsCards stats={stats} loading={loadingStats} />
 
-        <div className="flex gap-1 border-b border-border">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
-                tab === t.id
-                  ? "bg-surface border border-b-surface border-border text-white"
-                  : "text-muted hover:text-white"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="border-b" style={{ borderColor: "#1e3a5f" }}>
+          <div className="flex gap-0">
+            {(
+              [
+                { id: "horizontal" as Tab, num: "01", label: "Dinámica del Viento Horizontal (U/V)" },
+                { id: "vertical" as Tab, num: "02", label: "Dinámica Atmosférica Vertical (ω)" },
+                { id: "relations" as Tab, num: "03", label: "Relaciones Atmosféricas" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors relative"
+                style={{
+                  color: tab === t.id ? "#22d3ee" : "#8ba3c4",
+                  borderBottom: tab === t.id ? "2px solid #22d3ee" : "2px solid transparent",
+                }}
+              >
+                <span className="text-xs font-mono" style={{ color: tab === t.id ? "#22d3ee" : "#4a6380" }}>
+                  {t.num}
+                </span>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 pb-8">
           {tab === "horizontal" && (
             <>
-              <WindMap
-                heatmapData={heatmap}
-                vectorData={vectors}
-                loading={loadingMap}
-              />
-              <ParticleField data={particles} loading={loadingParticles} />
+              <ParticleGlobe particles={particles} />
+              <WindVectorField vectors={vectors} />
+              <SpeedHeatmap heatmap={heatmap} />
             </>
           )}
 
           {tab === "vertical" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <LevelsChart data={levels} loading={loadingLevels} />
-              <ProfileChart
-                data={profile}
-                loading={loadingProfile}
-                lat={profileLat}
-                onLatChange={setProfileLat}
-              />
-            </div>
+            <>
+              <VerticalSection levels={levels} />
+              <AtmProfile profile={profile} />
+            </>
           )}
 
           {tab === "relations" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <HistogramChart
-                data={histogram}
-                loading={loadingHist}
-                variable={histVariable}
-                onVariableChange={setHistVariable}
-              />
-              <BarChartViz data={bar} loading={loadingBar} />
-            </div>
+            <VorticityViz histogram={histogram} bar={bar} />
           )}
         </div>
       </div>

@@ -1,89 +1,88 @@
-# DYAMOND GEOS Wind Dashboard — Editable Source
+# DYAMOND GEOS Wind Dashboard — Código Fuente Editable
 
-Global atmospheric wind dynamics visualizer using NASA GEOS/DYAMOND simulation data.
+Versión editable del dashboard de análisis global de vientos atmosféricos basado en datos DYAMOND/GEOS.
 
-## Requirements
+## Requisitos
 
 - Node.js 20+
 
-## Setup
+## Instalación
 
 ```bash
 npm install
 ```
 
-## Development
+## Desarrollo
 
-Runs both the API server (port 3001) and the Vite frontend (port 5173) with hot reload:
+Inicia el servidor API (puerto 3001) y el frontend Vite (puerto 5173) con hot reload:
 
 ```bash
 npm run dev
 ```
 
-Open http://localhost:5173 in your browser.
+Abrir http://localhost:5173
 
-## Project Structure
+## Estructura del proyecto
 
 ```
-├── server/               # Express API server (TypeScript)
-│   ├── index.ts          # Entry point
-│   ├── app.ts            # Express app setup
-│   ├── logger.ts         # Pino logger configuration
+├── server/               # Servidor Express API (TypeScript)
+│   ├── index.ts
+│   ├── app.ts
+│   ├── logger.ts
 │   └── routes/
-│       ├── index.ts      # Route aggregator
+│       ├── index.ts
 │       ├── health.ts     # GET /api/healthz
-│       └── wind.ts       # Wind data endpoints
+│       └── wind.ts       # 8 endpoints de datos de viento
 │
-├── client/               # React frontend (TypeScript + Vite)
+├── client/               # Frontend React (TypeScript + Vite)
 │   ├── index.html
 │   └── src/
 │       ├── main.tsx
-│       ├── App.tsx       # Main dashboard with tabs
+│       ├── App.tsx                   # Layout principal con pestañas
 │       ├── index.css
-│       ├── types/api.ts  # TypeScript interfaces
-│       ├── lib/api.ts    # API client
+│       ├── types/api.ts              # Interfaces TypeScript
+│       ├── lib/api.ts                # Cliente HTTP
 │       └── components/
-│           ├── Controls.tsx      # Face/Level/Year selectors
-│           ├── StatsCards.tsx    # KPI cards
-│           ├── WindMap.tsx       # Canvas heatmap + vectors
-│           ├── LevelsChart.tsx   # Altitude profile chart
-│           ├── ProfileChart.tsx  # Lat-slice profile chart
-│           ├── HistogramChart.tsx# Speed/temp/w distribution
-│           ├── BarChartViz.tsx   # Region comparison
-│           └── ParticleField.tsx # Animated particle flow
+│           ├── YearSelector.tsx      # Selector de año con timeline
+│           ├── StatsCards.tsx        # 4 tarjetas KPI
+│           ├── ParticleGlobe.tsx     # Globo ortográfico + partículas
+│           ├── WindVectorField.tsx   # Campo vectorial del viento
+│           ├── SpeedHeatmap.tsx      # Mapa de calor de velocidad
+│           ├── VerticalSection.tsx   # Sección transversal flujo vertical
+│           ├── AtmProfile.tsx        # Perfil atmosférico multivariable
+│           └── VorticityViz.tsx      # Vorticidad y relaciones atmosféricas
 │
-├── public/               # Static assets (favicon, etc.)
-├── vite.config.ts        # Vite configuration
-├── tailwind.config.js    # Tailwind CSS theme
-├── tsconfig.json         # TypeScript config (client)
-├── tsconfig.server.json  # TypeScript config (server)
-└── package.json
+├── dist/                 # App compilada lista para producción
+├── package.json
+├── vite.config.ts
+├── tsconfig.json
+└── tsconfig.server.json
 ```
 
-## API Endpoints
+## Endpoints de la API
 
-| Endpoint | Description |
+| Endpoint | Descripción |
 |---|---|
 | `GET /api/healthz` | Health check |
-| `GET /api/wind/stats` | Summary stats (max/avg speed, temp, jet stream) |
-| `GET /api/wind/vectors` | Wind vector field (lat, lon, u, v, speed) |
-| `GET /api/wind/heatmap` | High-res wind speed grid |
-| `GET /api/wind/levels` | Vertical profile by altitude level |
-| `GET /api/wind/profile` | Profile at specific latitude |
-| `GET /api/wind/histogram` | Frequency distribution (speed/temp/w) |
-| `GET /api/wind/bar` | Regional speed comparison |
-| `GET /api/wind/particles` | Particle flow field data |
+| `GET /api/wind/stats` | Estadísticas globales |
+| `GET /api/wind/particles` | Campo de partículas (lat, lon, u, v) |
+| `GET /api/wind/vectors` | Campo vectorial del viento |
+| `GET /api/wind/heatmap` | Mapa de calor de velocidad |
+| `GET /api/wind/levels` | Perfil por niveles atmosféricos |
+| `GET /api/wind/profile` | Perfil atmosférico vertical |
+| `GET /api/wind/histogram` | Histograma de velocidades |
+| `GET /api/wind/bar` | Velocidad promedio mensual |
 
-All wind endpoints accept `?face=0&level=30&year=2016` query params.
+Parámetros: `?face=0&level=30&year=2016`
 
-## Data Sources
+## Fuentes de datos
 
-- **OpenVisus (live)**: Fetches real GEOS data from `nsdf-climate3-origin.nationalresearchplatform.org` when available
-- **Synthetic (fallback)**: Physically-based wind model using seeded random generation
+- **OpenVisus (live)**: Datos GEOS reales desde `nsdf-climate3-origin.nationalresearchplatform.org`
+- **Sintéticos (fallback)**: Modelo de viento físicamente basado cuando no hay conexión
 
-## Build for Production
+## Build para producción
 
 ```bash
-npm run build       # Builds frontend to dist/public and server to dist/server
-npm start           # Runs the unified production server
+npm run build    # Compila frontend → dist/public y servidor → dist/
+npm start        # Sirve desde dist/index.mjs (idéntico al branch main)
 ```
