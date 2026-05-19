@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: hsl(222, 47%, 7%);
+  color: #e2e8f0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Leaflet overrides for dark theme */
+.leaflet-container {
+  background: hsl(222, 47%, 10%);
+}
+
+.leaflet-tile {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
