@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: 222 47% 7%;
+  --foreground: 210 40% 92%;
+  --border: 220 30% 16%;
+  --input: 220 30% 16%;
+  --ring: 196 80% 45%;
+  --card: 222 40% 10%;
+  --card-foreground: 210 40% 92%;
+  --primary: 196 80% 45%;
+  --primary-foreground: 222 47% 7%;
+  --secondary: 220 25% 18%;
+  --secondary-foreground: 210 40% 80%;
+  --muted: 220 25% 14%;
+  --muted-foreground: 220 20% 55%;
+  --accent: 155 70% 40%;
+  --accent-foreground: 222 47% 7%;
+  --destructive: 0 72% 51%;
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * { @apply border-border box-border; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background: hsl(222, 47%, 7%);
+  }
+}
+
+/* D3 chart styles */
+.d3-axis text { fill: hsl(220, 20%, 55%); font-size: 11px; }
+.d3-axis path, .d3-axis line { stroke: hsl(220, 30%, 20%); }
+.d3-grid line { stroke: hsl(220, 30%, 16%); stroke-dasharray: 3,3; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: hsl(222, 40%, 9%); }
+::-webkit-scrollbar-thumb { background: hsl(220, 25%, 22%); border-radius: 3px; }
+
+/* Tab glow on active */
+.tab-active-glow {
+  box-shadow: 0 0 20px -4px hsl(196, 80%, 45%, 0.4);
+}
+
+/* KPI card glow */
+.kpi-glow-cyan { box-shadow: 0 0 24px -6px hsl(196, 80%, 45%, 0.35); }
+.kpi-glow-green { box-shadow: 0 0 24px -6px hsl(155, 70%, 40%, 0.35); }
+.kpi-glow-violet { box-shadow: 0 0 24px -6px hsl(270, 70%, 60%, 0.35); }
+.kpi-glow-amber { box-shadow: 0 0 24px -6px hsl(38, 90%, 55%, 0.35); }

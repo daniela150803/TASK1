@@ -1,0 +1,380 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: wind
+    description: Wind data operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /wind/stats:
+    get:
+      operationId: getWindStats
+      tags: [wind]
+      summary: Get wind statistics
+      parameters:
+        - name: face
+          in: query
+          schema: { type: integer }
+        - name: level
+          in: query
+          schema: { type: integer }
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Wind statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WindStats"
+
+  /wind/vectors:
+    get:
+      operationId: getWindVectors
+      tags: [wind]
+      summary: Get wind vectors
+      parameters:
+        - name: face
+          in: query
+          schema: { type: integer }
+        - name: level
+          in: query
+          schema: { type: integer }
+        - name: resolution
+          in: query
+          schema: { type: integer }
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Wind vectors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WindVector"
+
+  /wind/heatmap:
+    get:
+      operationId: getWindHeatmap
+      tags: [wind]
+      summary: Get wind heatmap data
+      parameters:
+        - name: face
+          in: query
+          schema: { type: integer }
+        - name: level
+          in: query
+          schema: { type: integer }
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Wind heatmap data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WindVector"
+
+  /wind/levels:
+    get:
+      operationId: getWindLevels
+      tags: [wind]
+      summary: Get wind data per atmospheric level
+      parameters:
+        - name: face
+          in: query
+          schema: { type: integer }
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Level data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LevelData"
+
+  /wind/profile:
+    get:
+      operationId: getWindProfile
+      tags: [wind]
+      summary: Get vertical wind profile
+      parameters:
+        - name: face
+          in: query
+          schema: { type: integer }
+        - name: lat
+          in: query
+          schema: { type: number }
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Vertical profile data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProfilePoint"
+
+  /wind/histogram:
+    get:
+      operationId: getWindHistogram
+      tags: [wind]
+      summary: Get wind variable histogram
+      parameters:
+        - name: face
+          in: query
+          schema: { type: integer }
+        - name: level
+          in: query
+          schema: { type: integer }
+        - name: variable
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Histogram bins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistogramBin"
+
+  /wind/bar:
+    get:
+      operationId: getWindBar
+      tags: [wind]
+      summary: Get wind bar chart data by region and level
+      parameters:
+        - name: face
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Bar data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BarEntry"
+
+  /wind/particles:
+    get:
+      operationId: getWindParticles
+      tags: [wind]
+      summary: Get wind particle field for flow simulation
+      parameters:
+        - name: face
+          in: query
+          schema: { type: integer }
+        - name: level
+          in: query
+          schema: { type: integer }
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Particle field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticleField"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    WindStats:
+      type: object
+      properties:
+        maxSpeed: { type: number }
+        minSpeed: { type: number }
+        avgSpeed: { type: number }
+        maxTemp: { type: number }
+        minTemp: { type: number }
+        avgTemp: { type: number }
+        maxW: { type: number }
+        minW: { type: number }
+        totalPoints: { type: integer }
+        activeFaces: { type: integer }
+        dominantDirection: { type: string }
+        jetStreamAlt: { type: number }
+        dataSource: { type: string }
+      required:
+        - maxSpeed
+        - minSpeed
+        - avgSpeed
+        - maxTemp
+        - minTemp
+        - avgTemp
+        - maxW
+        - minW
+        - totalPoints
+        - activeFaces
+        - dominantDirection
+        - jetStreamAlt
+        - dataSource
+
+    WindVector:
+      type: object
+      properties:
+        lat: { type: number }
+        lon: { type: number }
+        u: { type: number }
+        v: { type: number }
+        speed: { type: number }
+        level: { type: integer }
+      required:
+        - lat
+        - lon
+        - u
+        - v
+        - speed
+        - level
+
+    LevelData:
+      type: object
+      properties:
+        level: { type: integer }
+        altitudeKm: { type: number }
+        avgU: { type: number }
+        avgV: { type: number }
+        avgSpeed: { type: number }
+        avgTemp: { type: number }
+        avgW: { type: number }
+        maxSpeed: { type: number }
+      required:
+        - level
+        - altitudeKm
+        - avgU
+        - avgV
+        - avgSpeed
+        - avgTemp
+        - avgW
+        - maxSpeed
+
+    ProfilePoint:
+      type: object
+      properties:
+        level: { type: integer }
+        altitudeKm: { type: number }
+        speed: { type: number }
+        u: { type: number }
+        v: { type: number }
+        temperature: { type: number }
+        w: { type: number }
+        pressure: { type: number }
+      required:
+        - level
+        - altitudeKm
+        - speed
+        - u
+        - v
+        - temperature
+        - w
+        - pressure
+
+    HistogramBin:
+      type: object
+      properties:
+        binStart: { type: number }
+        binEnd: { type: number }
+        binLabel: { type: string }
+        count: { type: integer }
+        frequency: { type: number }
+      required:
+        - binStart
+        - binEnd
+        - binLabel
+        - count
+        - frequency
+
+    BarEntry:
+      type: object
+      properties:
+        label: { type: string }
+        level: { type: integer }
+        altitudeKm: { type: number }
+        avgSpeed: { type: number }
+        avgU: { type: number }
+        avgV: { type: number }
+        region: { type: string }
+      required:
+        - label
+        - level
+        - altitudeKm
+        - avgSpeed
+        - avgU
+        - avgV
+        - region
+
+    ParticleField:
+      type: object
+      properties:
+        width: { type: integer }
+        height: { type: integer }
+        uField:
+          type: array
+          items: { type: number }
+        vField:
+          type: array
+          items: { type: number }
+        uMin: { type: number }
+        uMax: { type: number }
+        vMin: { type: number }
+        vMax: { type: number }
+        dataSource: { type: string }
+      required:
+        - width
+        - height
+        - uField
+        - vField
+        - uMin
+        - uMax
+        - vMin
+        - vMax
+        - dataSource
+
