@@ -15,6 +15,7 @@ export default function Tab2VerticalDynamics({ face, level: _level, year = 2016 
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Fila superior: Sección transversal + Perfil de temperatura */}
       <div className="grid grid-cols-2 gap-4">
         <ChartCard
           title="Sección Transversal del Flujo Vertical"
@@ -23,22 +24,21 @@ export default function Tab2VerticalDynamics({ face, level: _level, year = 2016 
           <VerticalCrossSection data={levels} loading={lLoading} />
         </ChartCard>
 
-        <div className="flex flex-col gap-4">
-          <ChartCard
-            title="Perfil de Temperatura Atmosférica"
-            subtitle="Velocidad y Temperatura vs Altitud · capas atmosféricas"
-          >
-            <TemperatureProfileChart data={profile} loading={pLoading} />
-          </ChartCard>
-
-          <ChartCard
-            title="Mapa de Calor de Velocidad Vertical"
-            subtitle="Cuadrícula D3 — ω (m/s) por nivel de altitud · escala de color divergente"
-          >
-            <VerticalVelocityHeatmap data={levels} loading={lLoading} />
-          </ChartCard>
-        </div>
+        <ChartCard
+          title="Perfil de Temperatura Atmosférica"
+          subtitle="Velocidad y Temperatura vs Altitud · capas atmosféricas"
+        >
+          <TemperatureProfileChart data={profile} loading={pLoading} />
+        </ChartCard>
       </div>
+
+      {/* Fila inferior: Heatmap ancho completo */}
+      <ChartCard
+        title="Mapa de Calor de Velocidad Vertical"
+        subtitle="ω (m/s) por nivel atmosférico y altitud · escala de color divergente · hover para detalle"
+      >
+        <VerticalVelocityHeatmap data={levels} loading={lLoading} />
+      </ChartCard>
     </div>
   );
 }
