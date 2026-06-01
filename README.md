@@ -1,88 +1,96 @@
-# DYAMOND GEOS Wind Dashboard — Código Fuente Editable
+# Dyamond Wind Dashboard
 
-Versión editable del dashboard de análisis global de vientos atmosféricos basado en datos DYAMOND/GEOS.
+Dashboard interactivo para visualización de datos de viento, partículas, campo vectorial, mapa de calor y gráficas conectadas.
 
-## Requisitos
+## Requisitos previos
 
-- Node.js 20+
+Antes de ejecutar el proyecto, asegúrate de tener instalado:
 
-## Instalación
+- Node.js
+- pnpm
 
-```bash
-npm install
+Puedes verificarlo con:
+
+```powershell
+node -v
+pnpm -v
 ```
 
-## Desarrollo
+---
 
-Inicia el servidor API (puerto 3001) y el frontend Vite (puerto 5173) con hot reload:
+## 1. Abrir la carpeta del proyecto
 
-```bash
-npm run dev
+En PowerShell, entra a la carpeta del proyecto:
+
+```powershell
+cd "...."
 ```
 
-Abrir http://localhost:5173
+---
 
-## Estructura del proyecto
+## 2. Limpiar e instalar dependencias
 
-```
-├── server/               # Servidor Express API (TypeScript)
-│   ├── index.ts
-│   ├── app.ts
-│   ├── logger.ts
-│   └── routes/
-│       ├── index.ts
-│       ├── health.ts     # GET /api/healthz
-│       └── wind.ts       # 8 endpoints de datos de viento
-│
-├── client/               # Frontend React (TypeScript + Vite)
-│   ├── index.html
-│   └── src/
-│       ├── main.tsx
-│       ├── App.tsx                   # Layout principal con pestañas
-│       ├── index.css
-│       ├── types/api.ts              # Interfaces TypeScript
-│       ├── lib/api.ts                # Cliente HTTP
-│       └── components/
-│           ├── YearSelector.tsx      # Selector de año con timeline
-│           ├── StatsCards.tsx        # 4 tarjetas KPI
-│           ├── ParticleGlobe.tsx     # Globo ortográfico + partículas
-│           ├── WindVectorField.tsx   # Campo vectorial del viento
-│           ├── SpeedHeatmap.tsx      # Mapa de calor de velocidad
-│           ├── VerticalSection.tsx   # Sección transversal flujo vertical
-│           ├── AtmProfile.tsx        # Perfil atmosférico multivariable
-│           └── VorticityViz.tsx      # Vorticidad y relaciones atmosféricas
-│
-├── dist/                 # App compilada lista para producción
-├── package.json
-├── vite.config.ts
-├── tsconfig.json
-└── tsconfig.server.json
+Ejecuta los siguientes comandos para eliminar dependencias anteriores e instalar todo nuevamente:
+
+```powershell
+Remove-Item -Recurse -Force .\node_modules -ErrorAction SilentlyContinue
+pnpm install --force
 ```
 
-## Endpoints de la API
+---
 
-| Endpoint | Descripción |
-|---|---|
-| `GET /api/healthz` | Health check |
-| `GET /api/wind/stats` | Estadísticas globales |
-| `GET /api/wind/particles` | Campo de partículas (lat, lon, u, v) |
-| `GET /api/wind/vectors` | Campo vectorial del viento |
-| `GET /api/wind/heatmap` | Mapa de calor de velocidad |
-| `GET /api/wind/levels` | Perfil por niveles atmosféricos |
-| `GET /api/wind/profile` | Perfil atmosférico vertical |
-| `GET /api/wind/histogram` | Histograma de velocidades |
-| `GET /api/wind/bar` | Velocidad promedio mensual |
+## 3. Ejecutar la API
 
-Parámetros: `?face=0&level=30&year=2016`
+En la primera terminal, ejecuta:
 
-## Fuentes de datos
+```powershell
 
-- **OpenVisus (live)**: Datos GEOS reales desde `nsdf-climate3-origin.nationalresearchplatform.org`
-- **Sintéticos (fallback)**: Modelo de viento físicamente basado cuando no hay conexión
-
-## Build para producción
-
-```bash
-npm run build    # Compila frontend → dist/public y servidor → dist/
-npm start        # Sirve desde dist/index.mjs (idéntico al branch main)
+$env:PORT="5000"
+$env:NODE_ENV="development"
+pnpm --filter @workspace/api-server run build
+pnpm --filter @workspace/api-server run start
 ```
+
+Cuando veas un mensaje similar a este, la API ya estará funcionando:
+
+```powershell
+Server listening
+port: 5000
+```
+
+Deja esta terminal abierta.
+
+---
+
+## 4. Ejecutar el frontend
+
+Abre una segunda terminal de PowerShell y entra nuevamente a la carpeta del proyecto:
+
+```powershell
+cd "C:\Users\danie\Downloads\dyamond-wind-dashboard-conectado"
+```
+
+Luego ejecuta:
+
+```powershell
+pnpm --filter @workspace/wind-dashboard run dev
+```
+
+---
+
+## 5. Abrir el dashboard
+
+Cuando el frontend esté activo, abre el navegador en:
+
+```text
+http://localhost:5173
+```
+
+---
+
+## Notas importantes
+
+- La API debe quedar corriendo en el puerto `5000`.
+- El frontend debe correr en el puerto `5173`.
+- Se recomienda usar dos terminales: una para la API y otra para el frontend.
+- No cierres la terminal de la API mientras estés usando el dashboard.
