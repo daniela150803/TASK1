@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import type { WindVector } from "@workspace/api-client-react";
 import { useChartInteraction } from "../ChartInteractionContext";
@@ -8,159 +8,434 @@ interface Props {
   loading: boolean;
 }
 
-type HeatCell = { ri: number; ci: number; avg: number; count: number; lat: number; lon: number; u: number; v: number };
-
 type Tooltip = {
   x: number;
   y: number;
   lat: number;
   lon: number;
   speed: number;
-  count: number;
   u: number;
   v: number;
+  count: number;
 } | null;
 
-function nearestCell(cells: HeatCell[], lat: number, lon: number) {
-  let best: HeatCell | null = null;
+type HeatPoint = {
+  lat: number;
+  lon: number;
+  speed: number;
+  u: number;
+  v: number;
+  x: number;
+  y: number;
+};
+
+type Layout = {
+  W: number;
+  H: number;
+  w: number;
+  h: number;
+  margin: { top: number; right: number; bottom: number; left: number };
+  xScale: d3.ScaleLinear<number, number>;
+  yScale: d3.ScaleLinear<number, number>;
+  points: HeatPoint[];
+  maxVal: number;
+  focusedPoint: HeatPoint | null;
+};
+
+const HEAT_PALETTE = Array.from({ length: 256 }, (_, i) => {
+  const t = i / 255;
+  const c = d3.rgb(d3.interpolateTurbo(t));
+  return [c.r, c.g, c.b] as const;
+});
+
+function clamp01(n: number) {
+  return Math.max(0, Math.min(1, n));
+}
+
+function nearestPoint(points: HeatPoint[], lat: number, lon: number) {
+  let best: HeatPoint | null = null;
   let bestDist = Infinity;
-  cells.forEach((cell) => {
-    const dist = Math.hypot(cell.lat - lat, cell.lon - lon);
+
+  for (const p of points) {
+    const dist = Math.hypot(p.lat - lat, p.lon - lon);
     if (dist < bestDist) {
       bestDist = dist;
-      best = cell;
+      best = p;
     }
-  });
+  }
+
   return best;
 }
 
+function nearestScreenPoint(points: HeatPoint[], x: number, y: number) {
+  let best: HeatPoint | null = null;
+  let bestDist = Infinity;
+
+  for (const p of points) {
+    const dist = Math.hypot(p.x - x, p.y - y);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = p;
+    }
+  }
+
+  return { point: best, dist: bestDist };
+}
+
 export default function WindHeatmapChart({ data, loading }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+
   const [tooltip, setTooltip] = useState<Tooltip>(null);
+  const [width, setWidth] = useState(0);
+
   const { geoFocus, setGeoFocus, setActiveVariable } = useChartInteraction();
 
   useEffect(() => {
-    if (!data || data.length === 0 || !svgRef.current) return;
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    const el = containerRef.current;
+    if (!el) return;
 
-    const W = svgRef.current.clientWidth || 420;
-    const H = 210;
+    const ro = new ResizeObserver(([entry]) => {
+      setWidth(entry.contentRect.width);
+    });
+
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const layout = useMemo<Layout | null>(() => {
+    if (!data?.length) return null;
+
+    const W = Math.max(width || 0, 320);
+    const H = 220;
     const margin = { top: 10, right: 12, bottom: 26, left: 36 };
     const w = W - margin.left - margin.right;
     const h = H - margin.top - margin.bottom;
 
-    svg.attr("viewBox", `0 0 ${W} ${H}`).attr("height", H);
-    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+    if (w <= 0 || h <= 0) return null;
 
-    g.append("rect").attr("width", w).attr("height", h).attr("rx", 4).attr("fill", "hsl(215,42%,8%)");
-
-    const latBins = 20;
-    const lonBins = 40;
     const latExtent = d3.extent(data, (d) => d.lat) as [number, number];
     const lonExtent = d3.extent(data, (d) => d.lon) as [number, number];
-    if (latExtent[0] === undefined || lonExtent[0] === undefined) return;
+
+    if (
+      !latExtent ||
+      !lonExtent ||
+      !Number.isFinite(latExtent[0]) ||
+      !Number.isFinite(latExtent[1]) ||
+      !Number.isFinite(lonExtent[0]) ||
+      !Number.isFinite(lonExtent[1])
+    ) {
+      return null;
+    }
 
     const xScale = d3.scaleLinear().domain(lonExtent).range([0, w]);
     const yScale = d3.scaleLinear().domain(latExtent).range([h, 0]);
-    const cellW = w / lonBins;
-    const cellH = h / latBins;
 
-    const grid: number[][] = Array.from({ length: latBins }, () => new Array(lonBins).fill(0));
-    const uGrid: number[][] = Array.from({ length: latBins }, () => new Array(lonBins).fill(0));
-    const vGrid: number[][] = Array.from({ length: latBins }, () => new Array(lonBins).fill(0));
-    const count: number[][] = Array.from({ length: latBins }, () => new Array(lonBins).fill(0));
-    data.forEach((pt) => {
-      const latDen = latExtent[1] - latExtent[0] || 1;
-      const lonDen = lonExtent[1] - lonExtent[0] || 1;
-      const li = Math.floor(((pt.lat - latExtent[0]) / latDen) * latBins);
-      const lo = Math.floor(((pt.lon - lonExtent[0]) / lonDen) * lonBins);
-      const r = Math.max(0, Math.min(latBins - 1, li));
-      const c = Math.max(0, Math.min(lonBins - 1, lo));
-      grid[r][c] += pt.speed;
-      uGrid[r][c] += pt.u;
-      vGrid[r][c] += pt.v;
-      count[r][c]++;
-    });
+    const points: HeatPoint[] = data.map((d) => ({
+      lat: d.lat,
+      lon: d.lon,
+      speed: d.speed,
+      u: d.u,
+      v: d.v,
+      x: xScale(d.lon),
+      y: yScale(d.lat),
+    }));
 
-    const cells: HeatCell[] = [];
-    for (let ri = 0; ri < latBins; ri++) {
-      for (let ci = 0; ci < lonBins; ci++) {
-        const avg = count[ri][ci] > 0 ? grid[ri][ci] / count[ri][ci] : 0;
-        const u = count[ri][ci] > 0 ? uGrid[ri][ci] / count[ri][ci] : 0;
-        const v = count[ri][ci] > 0 ? vGrid[ri][ci] / count[ri][ci] : 0;
-        const lat = latExtent[0] + ((ri + 0.5) / latBins) * (latExtent[1] - latExtent[0]);
-        const lon = lonExtent[0] + ((ci + 0.5) / lonBins) * (lonExtent[1] - lonExtent[0]);
-        cells.push({ ri, ci, avg, count: count[ri][ci], lat, lon, u, v });
-      }
+    const maxVal = d3.max(points, (d) => d.speed) ?? 1;
+
+    const focusedPoint =
+      geoFocus && points.length > 0
+        ? nearestPoint(points, geoFocus.lat, geoFocus.lon)
+        : null;
+
+    return {
+      W,
+      H,
+      w,
+      h,
+      margin,
+      xScale,
+      yScale,
+      points,
+      maxVal,
+      focusedPoint,
+    };
+  }, [data, width, geoFocus]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !layout) return;
+
+    const { W, H, w, h, margin, points, maxVal, focusedPoint } = layout;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.fillStyle = "hsl(220, 45%, 6%)";
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.globalCompositeOperation = "lighter";
+    ctx.imageSmoothingEnabled = true;
+
+    const baseRadius = Math.max(8, Math.min(w, h) / 26);
+
+    for (const p of points) {
+      const t = clamp01(p.speed / maxVal);
+      const [r, g, b] = HEAT_PALETTE[Math.round(t * 255)];
+
+      const cx = margin.left + p.x;
+      const cy = margin.top + p.y;
+
+      const radiusOuter = baseRadius * (1.9 + t * 1.05);
+      const radiusInner = baseRadius * (0.7 + t * 0.45);
+
+      const alphaOuter = 0.06 + t * 0.12;
+      const alphaInner = 0.12 + t * 0.18;
+
+      const outer = ctx.createRadialGradient(cx, cy, 0, cx, cy, radiusOuter);
+      outer.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alphaOuter})`);
+      outer.addColorStop(0.45, `rgba(${r}, ${g}, ${b}, ${alphaOuter * 0.7})`);
+      outer.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+      ctx.fillStyle = outer;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radiusOuter, 0, Math.PI * 2);
+      ctx.fill();
+
+      const inner = ctx.createRadialGradient(cx, cy, 0, cx, cy, radiusInner);
+      inner.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alphaInner})`);
+      inner.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, ${alphaInner * 0.8})`);
+      inner.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+      ctx.fillStyle = inner;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radiusInner, 0, Math.PI * 2);
+      ctx.fill();
     }
 
-    const focusedCell = geoFocus ? nearestCell(cells, geoFocus.lat, geoFocus.lon) : null;
-    const maxVal = d3.max(cells, (d) => d.avg) || 1;
-    const colorScale = d3.scaleSequential(d3.interpolateInferno).domain([0, maxVal]);
+    if (focusedPoint) {
+      const cx = margin.left + focusedPoint.x;
+      const cy = margin.top + focusedPoint.y;
 
-    g.selectAll("rect.heat-cell")
-      .data(cells)
-      .enter()
-      .append("rect")
-      .attr("class", "heat-cell")
-      .attr("x", (d) => xScale(d.lon) - cellW / 2)
-      .attr("y", (d) => yScale(d.lat) - cellH / 2)
-      .attr("width", cellW + 0.6)
-      .attr("height", cellH + 0.6)
-      .attr("fill", (d) => colorScale(d.avg))
-      .attr("opacity", (d) => {
-        const isFocused = focusedCell && focusedCell.ri === d.ri && focusedCell.ci === d.ci;
-        return isFocused ? 1 : d.count > 0 ? 0.78 : 0.18;
-      })
-      .attr("stroke", (d) => focusedCell && focusedCell.ri === d.ri && focusedCell.ci === d.ci ? "hsl(196,80%,72%)" : "transparent")
-      .attr("stroke-width", (d) => focusedCell && focusedCell.ri === d.ri && focusedCell.ci === d.ci ? 1.4 : 0)
-      .style("cursor", "crosshair")
-      .on("mouseenter", (_event, d) => {
-        setActiveVariable("speed");
-        setGeoFocus({ lat: d.lat, lon: d.lon, speed: d.avg, u: d.u, v: d.v, variable: "speed", source: "Mapa de calor" });
-        setTooltip({ x: xScale(d.lon) + margin.left, y: yScale(d.lat) + margin.top, lat: d.lat, lon: d.lon, speed: d.avg, count: d.count, u: d.u, v: d.v });
-      })
-      .on("mousemove", (_event, d) => setTooltip({ x: xScale(d.lon) + margin.left, y: yScale(d.lat) + margin.top, lat: d.lat, lon: d.lon, speed: d.avg, count: d.count, u: d.u, v: d.v }))
-      .on("mouseleave", () => {
-        setTooltip(null);
-        setGeoFocus(null);
-      });
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "rgba(120, 245, 255, 0.98)";
+      ctx.lineWidth = 1.8;
+      ctx.shadowColor = "rgba(120, 245, 255, 0.55)";
+      ctx.shadowBlur = 10;
 
-    g.append("g").attr("class", "d3-axis").attr("transform", `translate(0,${h})`)
-      .call(d3.axisBottom(xScale).ticks(5).tickFormat((d) => `${d}°`));
-    g.append("g").attr("class", "d3-axis")
-      .call(d3.axisLeft(yScale).ticks(4).tickFormat((d) => `${d}°`));
+      ctx.beginPath();
+      ctx.arc(cx, cy, baseRadius * 1.7, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, baseRadius * 0.75, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.globalCompositeOperation = "source-over";
+  }, [layout]);
+
+  useEffect(() => {
+    const svgEl = svgRef.current;
+    if (!svgEl || !layout) return;
+
+    const { W, H, w, h, margin, xScale, yScale, maxVal, focusedPoint } = layout;
+
+    const svg = d3.select(svgEl);
+    svg.selectAll("*").remove();
+    svg.attr("viewBox", `0 0 ${W} ${H}`).attr("width", "100%").attr("height", H);
+
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    g.append("rect")
+      .attr("width", w)
+      .attr("height", h)
+      .attr("rx", 4)
+      .attr("fill", "transparent");
+
+    g.append("g")
+      .attr("class", "d3-axis")
+      .attr("transform", `translate(0,${h})`)
+      .call(d3.axisBottom(xScale).ticks(5).tickFormat((d) => `${d}°` as string));
+
+    g.append("g")
+      .attr("class", "d3-axis")
+      .call(d3.axisLeft(yScale).ticks(4).tickFormat((d) => `${d}°` as string));
+
+    svg.selectAll(".d3-axis text")
+      .attr("fill", "hsl(210, 35%, 80%)")
+      .attr("font-size", 10);
+
+    svg.selectAll(".d3-axis path, .d3-axis line")
+      .attr("stroke", "hsla(210, 35%, 75%, 0.25)");
 
     const defs = svg.append("defs");
-    const grad = defs.append("linearGradient").attr("id", "heatGrad").attr("x1", 0).attr("x2", 1);
-    [0, 0.25, 0.5, 0.75, 1].forEach((t) =>
-      grad.append("stop").attr("offset", `${t * 100}%`).attr("stop-color", d3.interpolateInferno(t))
-    );
-    const lg = g.append("g").attr("transform", `translate(${w - 100},4)`);
-    lg.append("rect").attr("width", 98).attr("height", 7).attr("rx", 2).attr("fill", "url(#heatGrad)").attr("opacity", 0.9);
-    lg.append("text").attr("x", 0).attr("y", 17).attr("fill", "hsl(220,20%,55%)").attr("font-size", 9).text("0");
-    lg.append("text").attr("x", 98).attr("y", 17).attr("text-anchor", "end").attr("fill", "hsl(220,20%,55%)").attr("font-size", 9).text(`${maxVal.toFixed(0)} m/s`);
-  }, [data, geoFocus, setActiveVariable, setGeoFocus]);
+    const grad = defs
+      .append("linearGradient")
+      .attr("id", "heatGrad")
+      .attr("x1", "0%")
+      .attr("x2", "100%");
+
+    [0, 0.15, 0.35, 0.6, 0.85, 1].forEach((t) => {
+      grad
+        .append("stop")
+        .attr("offset", `${t * 100}%`)
+        .attr("stop-color", d3.interpolateTurbo(t));
+    });
+
+    const lg = g.append("g").attr("transform", `translate(${w - 110},4)`);
+    lg.append("rect")
+      .attr("width", 105)
+      .attr("height", 8)
+      .attr("rx", 3)
+      .attr("fill", "url(#heatGrad)")
+      .attr("opacity", 0.98);
+
+    lg.append("text")
+      .attr("x", 0)
+      .attr("y", 18)
+      .attr("fill", "hsl(210,25%,68%)")
+      .attr("font-size", 9)
+      .text("0");
+
+    lg.append("text")
+      .attr("x", 105)
+      .attr("y", 18)
+      .attr("text-anchor", "end")
+      .attr("fill", "hsl(210,25%,68%)")
+      .attr("font-size", 9)
+      .text(`${maxVal.toFixed(0)} m/s`);
+
+    if (focusedPoint) {
+      const cx = xScale(focusedPoint.lon);
+      const cy = yScale(focusedPoint.lat);
+
+      g.append("circle")
+        .attr("cx", cx)
+        .attr("cy", cy)
+        .attr("r", 13)
+        .attr("fill", "none")
+        .attr("stroke", "hsl(190, 100%, 72%)")
+        .attr("stroke-width", 1.4)
+        .attr("opacity", 0.98);
+
+      g.append("circle")
+        .attr("cx", cx)
+        .attr("cy", cy)
+        .attr("r", 6)
+        .attr("fill", "none")
+        .attr("stroke", "hsl(190, 100%, 72%)")
+        .attr("stroke-width", 1.8)
+        .attr("opacity", 0.98);
+    }
+  }, [layout]);
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!layout || !containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+
+    const { margin, w, h, xScale, yScale, points } = layout;
+
+    const x = px - margin.left;
+    const y = py - margin.top;
+
+    if (x < 0 || y < 0 || x > w || y > h) {
+      setTooltip(null);
+      return;
+    }
+
+    // Buscar el punto más cercano en coordenadas de gráfico
+    const { point, dist } = nearestScreenPoint(points, x, y);
+
+    // Umbral real de hover: si el cursor está muy lejos, no mostrar tooltip
+    const hoverThreshold = Math.max(12, Math.min(w, h) / 18);
+
+    if (!point || dist > hoverThreshold) {
+      setTooltip(null);
+      return;
+    }
+
+    setActiveVariable("speed");
+    setGeoFocus({
+      lat: point.lat,
+      lon: point.lon,
+      speed: point.speed,
+      u: point.u,
+      v: point.v,
+      variable: "speed",
+      source: "Mapa de calor",
+    });
+
+    setTooltip({
+      x: margin.left + xScale(point.lon),
+      y: margin.top + yScale(point.lat),
+      lat: point.lat,
+      lon: point.lon,
+      speed: point.speed,
+      u: point.u,
+      v: point.v,
+      count: 1,
+    });
+  };
 
   return (
-    <div onMouseLeave={() => { setTooltip(null); setGeoFocus(null); }} className="w-full relative" style={{ height: 210 }}>
+    <div
+      ref={containerRef}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={() => {
+        setTooltip(null);
+        setGeoFocus(null);
+      }}
+      className="relative w-full overflow-hidden"
+      style={{ height: 220 }}
+    >
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center text-xs text-[hsl(220,20%,45%)] animate-pulse">
+        <div className="absolute inset-0 z-20 flex items-center justify-center text-xs text-[hsl(210,20%,55%)] animate-pulse">
           Loading heatmap...
         </div>
       )}
-      <svg ref={svgRef} className="w-full" />
+
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 h-full w-full pointer-events-none"
+      />
+
+      <svg
+        ref={svgRef}
+        className="absolute inset-0 z-10 h-full w-full pointer-events-none"
+      />
+
       {tooltip && (
         <div
-          className="absolute z-10 pointer-events-none rounded-md border border-[hsl(196,80%,45%,0.45)] bg-[hsl(222,45%,7%,0.94)] px-2.5 py-2 text-[10px] shadow-lg backdrop-blur-sm"
-          style={{ left: Math.min(tooltip.x + 10, 360), top: Math.max(8, tooltip.y - 58) }}
+          className="absolute z-30 pointer-events-none rounded-md border border-[hsl(190,100%,55%,0.55)] bg-[hsl(222,50%,7%,0.96)] px-2.5 py-2 text-[10px] shadow-lg shadow-cyan-950/30 backdrop-blur-sm"
+          style={{
+            left: Math.min(tooltip.x + 12, Math.max(width - 180, 8)),
+            top: Math.max(8, tooltip.y - 58),
+          }}
         >
-          <div className="font-semibold text-[hsl(196,80%,68%)] mb-1">Celda de calor conectada</div>
-          <div className="font-mono text-[hsl(210,40%,86%)] leading-4">
-            Prom. {tooltip.speed.toFixed(2)} m/s<br />
-            U {tooltip.u.toFixed(2)} · V {tooltip.v.toFixed(2)}<br />
-            Puntos {tooltip.count}<br />
+          <div className="mb-1 font-semibold text-[hsl(190,100%,72%)]">
+            Punto de calor
+          </div>
+          <div className="font-mono text-[hsl(210,40%,90%)] leading-4">
+            Prom. {tooltip.speed.toFixed(2)} m/s
+            <br />
+            U {tooltip.u.toFixed(2)} · V {tooltip.v.toFixed(2)}
+            <br />
             {tooltip.lat.toFixed(1)}°, {tooltip.lon.toFixed(1)}°
           </div>
         </div>
